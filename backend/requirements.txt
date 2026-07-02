@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+torch
+torchvision
+insightface
+onnxruntime
+opencv-python-headless
+numpy
+pillow
+scikit-learn
+pydantic
+mediapipe
+python-multipart
+timm
