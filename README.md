@@ -28,12 +28,13 @@ SentinelX-AI is an advanced, AI-powered real-time suspect detection and behavior
 ## ✨ Key Features
 
 1. **Real-time Live Surveillance:** Captures and processes live webcam feeds at high frame rates.
-2. **Suspicious Behavior Detection:** Analyzes head turns, blink rates, face covering, and excessive body motion.
-3. **Advanced Emotion Recognition:** Classifies 7 distinct emotions (Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise) using a custom PyTorch model.
-4. **Watchlist Monitoring:** Instantly matches faces against a pre-registered database of suspects using InsightFace embeddings.
-5. **Dynamic Risk Scoring:** Calculates an aggregated risk score (0-100) based on emotional state, behavioral anomalies, and watchlist matches.
-6. **Instant Alerts System:** Generates real-time, categorized alerts (Critical, Warning, Info) when the risk threshold is exceeded.
-7. **Comprehensive Analytics:** Dashboard with historical data, emotion distribution, and system health status.
+2. **Multi-Person Tracking:** Simultaneously detects, tracks, and assigns stable identities (e.g., Person 1, Person 2) to multiple individuals in the frame.
+3. **Suspicious Behavior Detection:** Analyzes head turns, blink rates, face covering, and excessive body motion for each tracked individual.
+4. **Advanced Emotion Recognition:** Classifies 7 distinct emotions (Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise) using a custom PyTorch model.
+5. **Watchlist Monitoring:** Instantly matches faces against a pre-registered database of suspects using InsightFace embeddings.
+6. **Dynamic Risk Scoring:** Calculates an aggregated risk score (0-100) based on emotional state, behavioral anomalies, and watchlist matches.
+7. **Instant Alerts & History Log:** Generates real-time, categorized alerts identifying the specific person, and logs all incidents in a Suspicious Behavior History table.
+8. **Comprehensive Analytics:** Dashboard with historical data, emotion distribution, and system health status.
 
 ---
 
@@ -42,12 +43,12 @@ SentinelX-AI is an advanced, AI-powered real-time suspect detection and behavior
 The end-to-end processing pipeline happens in milliseconds for every frame:
 1. **Capture:** The React frontend captures a base64-encoded frame from the webcam and sends it to the backend via REST API (`/analyze-frame`).
 2. **Pre-processing:** FastAPI receives the frame, decodes it, and converts it into matrices suitable for model inference via OpenCV and Pillow.
-3. **Face Recognition (InsightFace):** The frame is scanned for faces. Detected faces are converted into embeddings and compared against `models/watchlist.npy` using cosine similarity.
-4. **Emotion Detection (PyTorch):** The primary face is analyzed by a custom CNN to determine the dominant emotion and confidence score.
-5. **Behavior Analysis (MediaPipe):** Facial and pose landmarks are extracted to calculate behavioral metrics (e.g., eye aspect ratio for blinks, shoulder motion for body movement).
-6. **Risk Assessment:** A weighted algorithm aggregates the watchlist match score, fear/anger confidence, and behavioral anomalies to output a total Risk Score.
-7. **Alert Generation:** If the risk score exceeds predefined thresholds, an alert is generated and stored in the system history.
-8. **Response:** The consolidated data (Risk, Emotion, Behavior, Alerts) is returned to the frontend and visualized instantly.
+3. **Face Recognition & Tracking (InsightFace):** The frame is scanned for multiple faces. Detected faces are assigned stable IDs and converted into embeddings to compare against `models/watchlist.npy` using cosine similarity.
+4. **Emotion Detection (PyTorch):** The faces are analyzed by a custom CNN to determine the dominant emotion and confidence score.
+5. **Behavior Analysis (MediaPipe):** Facial and pose landmarks are extracted for up to 10 individuals and matched spatially to tracking boxes to calculate behavioral metrics (e.g., eye aspect ratio for blinks).
+6. **Risk Assessment:** A weighted algorithm aggregates the watchlist match score, fear/anger confidence, and behavioral anomalies to output a total Risk Score for each person.
+7. **Alert Generation:** If a risk score exceeds predefined thresholds, an alert identifying the specific person is generated and stored in the system history.
+8. **Response:** The consolidated array of data (People, Alerts) is returned to the frontend and visualized instantly with labeled bounding boxes and history logs.
 
 ---
 

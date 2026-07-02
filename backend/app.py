@@ -61,47 +61,63 @@ async def analyze_frame(data: FrameData):
 
         session_id = data.session_id
 
-        # 1. Face Recognition
-        face_result = face_service.recognize_face(frame_bgr)
+        # 1. Face Recognition (Multi-person)
+        tracked_faces = face_service.recognize_faces(frame_bgr, session_id)
         
-        # 2. Emotion Detection
-        emotion_result = emotion_service.detect_emotion(frame)
+        # 2. Emotion Detection (Multi-person)
+        emotions_result = emotion_service.detect_emotions(frame, tracked_faces)
         
         # Update analytics
-        if emotion_result and emotion_result.get("emotion"):
-            analytics_data["emotion_distribution"][emotion_result["emotion"]] += 1
+        for pid, em_data in emotions_result.items():
+            if em_data.get("emotion"):
+                analytics_data["emotion_distribution"][em_data["emotion"]] += 1
 
-        # 3. Behavior Analysis (MediaPipe)
-        behavior_result = behavior_service.analyze_behavior(frame_bgr, session_id, emotion_result)
+        # 3. Behavior Analysis (Multi-person)
+        behaviors_result = behavior_service.analyze_behaviors(frame_bgr, session_id, tracked_faces, emotions_result)
 
-        # 4. Risk Assessment
-        risk_result = risk_service.calculate_risk({
-            "fear_score": behavior_result.get("fear_score", 0),
-            "blink_score": behavior_result.get("blink_score", 0),
-            "face_cover_score": behavior_result.get("face_cover_score", 0),
-            "head_turn_score": behavior_result.get("head_turn_score", 0),
-            "body_motion_score": behavior_result.get("body_motion_score", 0),
-            "watchlist_score": face_result.get("match_score", 0) if face_result.get("status") == "MATCH" else 0,
-            "emotion_confidence": emotion_result.get("confidence", 0)
-        })
+        # 4 & 5. Risk Assessment & Alerts Generation
+        people_data = []
+        current_alerts = []
 
-        # 5. Alert Generation
-        current_alerts = risk_service.generate_alerts(
-            risk_result, behavior_result, face_result, emotion_result
-        )
-        
-        for alert in current_alerts:
-            alerts_history.append(alert)
+        for face in tracked_faces:
+            pid = face["person_id"]
+            em_data = emotions_result.get(pid, {})
+            beh_data = behaviors_result.get(pid, {})
+            
+            risk_result = risk_service.calculate_risk({
+                "fear_score": beh_data.get("fear_score", 0),
+                "blink_score": beh_data.get("blink_score", 0),
+                "face_cover_score": beh_data.get("face_cover_score", 0),
+                "head_turn_score": beh_data.get("head_turn_score", 0),
+                "body_motion_score": beh_data.get("body_motion_score", 0),
+                "watchlist_score": face.get("match_score", 0) if face.get("status") == "MATCH" else 0,
+                "emotion_confidence": em_data.get("confidence", 0)
+            })
+
+            person_alerts = risk_service.generate_alerts(
+                risk_result, beh_data, face, em_data, pid
+            )
+            
+            for alert in person_alerts:
+                alerts_history.append(alert)
+                current_alerts.append(alert)
+
+            people_data.append({
+                "person_id": pid,
+                "face_recognition": face,
+                "emotion": em_data,
+                "behavior": beh_data,
+                "risk": risk_result
+            })
 
         return {
-            "face_recognition": face_result,
-            "emotion": emotion_result,
-            "behavior": behavior_result,
-            "risk": risk_result,
+            "people": people_data,
             "alerts": current_alerts
         }
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
 
 @app.get("/watchlist")

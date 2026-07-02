@@ -40,7 +40,7 @@ class RiskService:
             "risk_level": risk_level
         }
 
-    def generate_alerts(self, risk_result, behavior_result, face_result, emotion_result):
+    def generate_alerts(self, risk_result, behavior_result, face_result, emotion_result, person_id):
         alerts = []
         timestamp = time.time()
         
@@ -51,27 +51,28 @@ class RiskService:
         if behavior_result.get("head_turn_score", 0) > 60: reasons.append("Rapid Head Scanning")
         if behavior_result.get("fear_score", 0) > 60: reasons.append("Elevated Fear")
         
+        prefix = f"[{person_id}] " if person_id else ""
+        
         if risk_result["risk_level"] == "HIGH":
             reason_str = f" ({', '.join(reasons)})" if reasons else ""
-            alerts.append({"id": str(uuid.uuid4()), "message": f"⚠ High Behavioral Risk{reason_str}", "timestamp": timestamp, "level": "HIGH"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ High Behavioral Risk{reason_str}", "timestamp": timestamp, "level": "HIGH", "behavior_type": "High Risk"})
             
         if face_result.get("status") == "MATCH":
-            alerts.append({"id": str(uuid.uuid4()), "message": f"⚠ Watchlist Match: {face_result.get('person')}", "timestamp": timestamp, "level": "HIGH"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Watchlist Match: {face_result.get('person')}", "timestamp": timestamp, "level": "HIGH", "behavior_type": "Watchlist Match"})
             
         if behavior_result.get("blink_score", 0) > 60:
-            alerts.append({"id": str(uuid.uuid4()), "message": "⚠ Excessive Blinking", "timestamp": timestamp, "level": "MEDIUM"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Excessive Blinking", "timestamp": timestamp, "level": "MEDIUM", "behavior_type": "Excessive Blinking"})
             
         if behavior_result.get("face_cover_score", 0) > 60:
-            alerts.append({"id": str(uuid.uuid4()), "message": "⚠ Face Covering Detected", "timestamp": timestamp, "level": "HIGH"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Face Covering Detected", "timestamp": timestamp, "level": "HIGH", "behavior_type": "Face Covering"})
             
         if behavior_result.get("head_turn_score", 0) > 50:
-            alerts.append({"id": str(uuid.uuid4()), "message": "⚠ Repeated Head Scanning", "timestamp": timestamp, "level": "MEDIUM"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Repeated Head Scanning", "timestamp": timestamp, "level": "MEDIUM", "behavior_type": "Head Scanning"})
 
-        # Rapid head movement: immediate warning when rapid head turns are detected
         if behavior_result.get("rapid_head_movement", False):
-            alerts.append({"id": str(uuid.uuid4()), "message": "⚠ Rapid Head Movement Detected", "timestamp": timestamp, "level": "MEDIUM"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Rapid Head Movement Detected", "timestamp": timestamp, "level": "MEDIUM", "behavior_type": "Rapid Head Movement"})
 
         if behavior_result.get("fear_score", 0) > 60:
-            alerts.append({"id": str(uuid.uuid4()), "message": "⚠ Elevated Fear Indicators", "timestamp": timestamp, "level": "HIGH"})
+            alerts.append({"id": str(uuid.uuid4()), "person_id": person_id, "message": f"{prefix}⚠ Elevated Fear Indicators", "timestamp": timestamp, "level": "HIGH", "behavior_type": "Elevated Fear"})
             
         return alerts

@@ -77,56 +77,63 @@ export default function Dashboard() {
   };
 
   const handleDataReceived = useCallback((data) => {
-    setSystemData(data);
+    let highestRiskPerson = null;
+    let maxRisk = -1;
+    
+    if (data.people && data.people.length > 0) {
+      data.people.forEach(p => {
+        if (p.risk && p.risk.risk_score > maxRisk) {
+          maxRisk = p.risk.risk_score;
+          highestRiskPerson = p;
+        }
+      });
+    }
 
-    // Process alerts from the backend
+    if (highestRiskPerson) {
+      setSystemData({
+        face_recognition: highestRiskPerson.face_recognition || { person: "UNKNOWN", match_score: 0.0, status: "NO_MATCH" },
+        emotion: highestRiskPerson.emotion || { emotion: "Neutral", confidence: 0.0 },
+        behavior: highestRiskPerson.behavior || { 
+          fear_score: 0, blink_score: 0, face_cover_score: 0, 
+          head_turn_score: 0, body_motion_score: 0, 
+          head_direction: "CENTER", behavior: "STABLE" 
+        },
+        risk: highestRiskPerson.risk || { risk_score: 0, risk_level: "LOW" },
+        alerts: data.alerts || []
+      });
+    } else {
+      setSystemData(prev => ({ ...prev, alerts: data.alerts || [] }));
+    }
+
     if (data.alerts && data.alerts.length > 0) {
       data.alerts.forEach(alert => {
         addNotification(alert.message, alert.level);
-        setAlertHistory(prev => [...prev.slice(-49), alert]);
+        setAlertHistory(prev => {
+          const isDupe = prev.length > 0 && prev[prev.length - 1].message === alert.message && (Date.now() - (prev[prev.length - 1].timestamp * 1000) < 1000);
+          if (isDupe) return prev;
+          return [...prev.slice(-99), alert];
+        });
       });
 
-      // Play sound and push browser notification for HIGH alerts
       const highAlerts = data.alerts.filter(a => a.level === 'HIGH');
       if (highAlerts.length > 0) {
         playAlertSound();
-        pushBrowserNotification(
-          '⚠ SentinelX-AI Alert',
-          highAlerts.map(a => a.message).join(' | ')
-        );
+        pushBrowserNotification('⚠ SentinelX-AI Alert', highAlerts.map(a => a.message).join(' | '));
       }
     }
 
-    // Detect risk level transitions
-    if (data.risk && data.risk.risk_level !== lastRiskLevelRef.current) {
-      if (data.risk.risk_level === 'HIGH' && lastRiskLevelRef.current !== 'HIGH') {
-        addNotification(`🔴 THREAT LEVEL ESCALATED TO HIGH — Risk Score: ${data.risk.risk_score}`, 'HIGH');
+    const currentRiskLevel = highestRiskPerson?.risk?.risk_level || "LOW";
+    const currentRiskScore = highestRiskPerson?.risk?.risk_score || 0;
+    
+    if (currentRiskLevel !== lastRiskLevelRef.current) {
+      if (currentRiskLevel === 'HIGH' && lastRiskLevelRef.current !== 'HIGH') {
+        addNotification(`🔴 THREAT LEVEL ESCALATED TO HIGH — Risk Score: ${currentRiskScore}`, 'HIGH');
         playAlertSound();
-        pushBrowserNotification('🔴 THREAT LEVEL HIGH', `Risk score has escalated to ${data.risk.risk_score}`);
-      } else if (data.risk.risk_level === 'MEDIUM' && lastRiskLevelRef.current === 'LOW') {
-        addNotification(`🟠 Elevated risk detected — Risk Score: ${data.risk.risk_score}`, 'MEDIUM');
+        pushBrowserNotification('🔴 THREAT LEVEL HIGH', `Risk score has escalated to ${currentRiskScore}`);
+      } else if (currentRiskLevel === 'MEDIUM' && lastRiskLevelRef.current === 'LOW') {
+        addNotification(`🟠 Elevated risk detected — Risk Score: ${currentRiskScore}`, 'MEDIUM');
       }
-      lastRiskLevelRef.current = data.risk.risk_level;
-    }
-
-    // Additional behavioral notifications
-    if (data.behavior) {
-      if (data.behavior.face_cover_score >= 80) {
-        addNotification('⚠ FACE COVERING DETECTED — Subject may be concealing identity', 'HIGH');
-      }
-      if (data.behavior.head_turn_score >= 50) {
-        addNotification('⚠ REPEATED HEAD SCANNING — Possible surveillance behavior', 'MEDIUM');
-      }
-      if (data.behavior.rapid_head_movement) {
-        addNotification('⚠ RAPID HEAD MOVEMENT DETECTED — Immediate attention required', 'MEDIUM');
-      }
-    }
-
-    // Watchlist match notification
-    if (data.face_recognition && data.face_recognition.status === 'MATCH') {
-      addNotification(`🚨 WATCHLIST MATCH: ${data.face_recognition.person} (${(data.face_recognition.match_score * 100).toFixed(0)}% confidence)`, 'HIGH');
-      playAlertSound();
-      pushBrowserNotification('🚨 WATCHLIST MATCH', `Subject "${data.face_recognition.person}" identified with ${(data.face_recognition.match_score * 100).toFixed(0)}% confidence`);
+      lastRiskLevelRef.current = currentRiskLevel;
     }
   }, [addNotification, playAlertSound, pushBrowserNotification]);
 
@@ -228,6 +235,52 @@ export default function Dashboard() {
               ) : (
                 <div className="text-xs font-mono text-gray-600 py-1">NO ACTIVE ALERTS — MONITORING...</div>
               )}
+            </div>
+          </div>
+
+          {/* Suspicious Behaviour History Log */}
+          <div className="glass-panel p-4 flex-shrink-0 h-64 flex flex-col">
+            <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+              <Activity size={14} className="text-primary" /> 
+              Suspicious Behaviour History Log
+            </h3>
+            <div className="overflow-x-auto flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+              <table className="w-full text-left text-xs font-mono border-collapse">
+                <thead className="sticky top-0 bg-[#0a0f18] z-10">
+                  <tr className="border-b border-primary/20 text-gray-500">
+                    <th className="py-2 px-3 font-normal uppercase">Time</th>
+                    <th className="py-2 px-3 font-normal uppercase">Person</th>
+                    <th className="py-2 px-3 font-normal uppercase">Behavior Type</th>
+                    <th className="py-2 px-3 font-normal uppercase text-right">Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertHistory.slice().reverse().map((alert, i) => {
+                    const ts = alert.timestamp ? new Date(alert.timestamp * 1000) : new Date();
+                    const timeStr = ts.toLocaleTimeString();
+                    const behaviorType = alert.behavior_type || alert.message.replace(/\[.*?\]\s*⚠\s*/, '');
+                    return (
+                      <tr key={i} className="border-b border-primary/10 hover:bg-primary/5 transition-colors">
+                        <td className="py-2 px-3 text-gray-400 whitespace-nowrap">{timeStr}</td>
+                        <td className="py-2 px-3 text-primary whitespace-nowrap">{alert.person_id || 'UNKNOWN'}</td>
+                        <td className="py-2 px-3 text-white truncate max-w-[150px]" title={behaviorType}>{behaviorType}</td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                            alert.level === 'HIGH' ? 'bg-danger/20 text-danger border border-danger/30' : 'bg-warning/20 text-warning border border-warning/30'
+                          }`}>
+                            {alert.level}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {alertHistory.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="py-8 text-center text-gray-600 italic">No suspicious behavior logged yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

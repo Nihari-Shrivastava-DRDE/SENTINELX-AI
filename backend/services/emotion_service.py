@@ -9,12 +9,12 @@ class EmotionService:
     def __init__(self, model_path="models/emotion_model.pth"):
         self.model_loaded = True
         
-        # Use FaceLandmarker with blendshapes for highly accurate facial expression analysis
+        # Increase num_faces to 10
         base_options = python.BaseOptions(model_asset_path='models/face_landmarker.task')
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
-            num_faces=1,
-            output_face_blendshapes=True,   # KEY: enables 52 facial shape coefficients
+            num_faces=10,
+            output_face_blendshapes=True,
             output_facial_transformation_matrixes=False,
             min_face_detection_confidence=0.5,
             min_face_presence_confidence=0.5,
@@ -22,7 +22,19 @@ class EmotionService:
         )
         self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
 
-    def detect_emotion(self, frame_rgb):
+    def _iou(self, boxA, boxB):
+        xA = max(boxA["x1"], boxB["x1"])
+        yA = max(boxA["y1"], boxB["y1"])
+        xB = min(boxA["x2"], boxB["x2"])
+        yB = min(boxA["y2"], boxB["y2"])
+        interArea = max(0, xB - xA) * max(0, yB - yA)
+        if interArea == 0: return 0.0
+        boxAArea = (boxA["x2"] - boxA["x1"]) * (boxA["y2"] - boxA["y1"])
+        boxBArea = (boxB["x2"] - boxB["x1"]) * (boxB["y2"] - boxB["y1"])
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+        return iou
+
+    def detect_emotions(self, frame_rgb, tracked_persons):
         frame_rgb = np.array(frame_rgb, dtype=np.uint8)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
         
@@ -30,39 +42,59 @@ class EmotionService:
             results = self.face_landmarker.detect(mp_image)
         except Exception as e:
             print(f"FaceLandmarker error: {e}")
-            return {"emotion": "Neutral", "confidence": 0.0, "face_bbox": None, "landmarks": []}
+            results = None
             
-        if not results or not results.face_landmarks:
-            return {"emotion": "Neutral", "confidence": 0.0, "face_bbox": None, "landmarks": []}
-
-        landmarks = results.face_landmarks[0]
         h, w = frame_rgb.shape[:2]
+        
+        # Parse MediaPipe faces
+        mp_faces = []
+        if results and results.face_landmarks:
+            for i, landmarks in enumerate(results.face_landmarks):
+                xs = [lm.x for lm in landmarks]
+                ys = [lm.y for lm in landmarks]
+                x1 = max(0, int(min(xs) * w) - 10)
+                y1 = max(0, int(min(ys) * h) - 10)
+                x2 = min(w, int(max(xs) * w) + 10)
+                y2 = min(h, int(max(ys) * h) + 10)
+                mp_bbox = {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+                
+                blendshapes = results.face_blendshapes[i] if results.face_blendshapes else None
+                mp_faces.append({"bbox": mp_bbox, "blendshapes": blendshapes, "landmarks": landmarks})
 
-        # Compute bounding box from landmarks
-        xs = [lm.x for lm in landmarks]
-        ys = [lm.y for lm in landmarks]
-        x1 = max(0, int(min(xs) * w) - 10)
-        y1 = max(0, int(min(ys) * h) - 10)
-        x2 = min(w, int(max(xs) * w) + 10)
-        y2 = min(h, int(max(ys) * h) + 10)
-        face_bbox = {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+        # Match to tracked_persons
+        emotions_result = {}
+        for person in tracked_persons:
+            pid = person["person_id"]
+            p_bbox = person["bbox"]
+            
+            best_mp_face = None
+            best_iou = 0.0
+            for mp_face in mp_faces:
+                iou = self._iou(p_bbox, mp_face["bbox"])
+                if iou > best_iou:
+                    best_iou = iou
+                    best_mp_face = mp_face
+                    
+            if best_iou > 0.1 and best_mp_face is not None:
+                # Compute emotion
+                emotion_data = self._compute_emotion(best_mp_face)
+                emotions_result[pid] = emotion_data
+            else:
+                emotions_result[pid] = {"emotion": "Neutral", "confidence": 0.0, "landmarks": []}
+                
+        return emotions_result
 
-        # Serialize key landmark points for canvas rendering (subset for performance)
+    def _compute_emotion(self, mp_face):
+        landmarks = mp_face["landmarks"]
         KEY_INDICES = [
-            # Face oval
             10,338,297,332,284,251,389,356,454,323,361,288,
             397,365,379,378,400,377,152,148,176,149,150,136,
             172,58,132,93,234,127,162,21,54,103,67,109,
-            # Left eye
             33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246,
-            # Right eye
             362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398,
-            # Eyebrows
             70,63,105,66,107,55,65,52,53,46,
             336,296,334,293,300,276,283,282,295,285,
-            # Nose
             168,6,197,195,5,4,1,19,94,2,
-            # Lips
             61,146,91,181,84,17,314,405,321,375,291,
             308,324,318,402,317,14,87,178,88,95,
             185,40,39,37,0,267,269,270,409,
@@ -72,12 +104,9 @@ class EmotionService:
             for i in KEY_INDICES if i < len(landmarks)
         ]
 
-        # Use blendshapes if available (most accurate method)
-        if results.face_blendshapes and len(results.face_blendshapes) > 0:
-            blendshapes = results.face_blendshapes[0]
-            scores = {b.category_name: b.score for b in blendshapes}
+        if mp_face["blendshapes"]:
+            scores = {b.category_name: b.score for b in mp_face["blendshapes"]}
             
-            # Extract relevant scores
             jaw_open = scores.get("jawOpen", 0)
             mouth_smile_l = scores.get("mouthSmileLeft", 0)
             mouth_smile_r = scores.get("mouthSmileRight", 0)
@@ -104,7 +133,6 @@ class EmotionService:
             avg_cheek_squint = (cheek_squint_l + cheek_squint_r) / 2
             avg_nose_sneer = (nose_sneer_l + nose_sneer_r) / 2
 
-            # Emotion classification using blendshape scores
             candidates = {
                 "Happy":    avg_smile * 2.0 + avg_cheek_squint * 0.8,
                 "Surprise": jaw_open * 1.5 + avg_eye_wide * 1.5 + avg_brow_outer_up * 0.7,
@@ -126,11 +154,10 @@ class EmotionService:
             return {
                 "emotion": best_emotion,
                 "confidence": round(confidence, 2),
-                "face_bbox": face_bbox,
                 "landmarks": serialized_landmarks
             }
 
-        # Fallback to geometric analysis if blendshapes not available
+        # Fallback
         def dist(p1, p2):
             return math.hypot(landmarks[p1].x - landmarks[p2].x, landmarks[p1].y - landmarks[p2].y)
             
@@ -156,6 +183,5 @@ class EmotionService:
         return {
             "emotion": emotion,
             "confidence": round(confidence, 2),
-            "face_bbox": face_bbox,
             "landmarks": serialized_landmarks
         }
