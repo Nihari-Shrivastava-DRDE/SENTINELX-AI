@@ -70,8 +70,14 @@ export default function Layout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-5 relative z-0">
-          <Outlet />
+        <main className="flex-1 overflow-auto p-5 relative z-0 flex flex-col">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <footer className="mt-auto pt-6 pb-2 text-center text-[11px] text-gray-500 font-mono opacity-70 border-t border-primary/10 w-full flex-shrink-0">
+            <p className="mb-1">Developed by <span className="text-gray-400 font-bold">Nihari Shrivastava</span>, in 2026 | <span className="text-primary/80 font-bold">SentinelX-AI</span> - Vigilance powered by Intelligence</p>
+            <p>Tech Stack: React, TailwindCSS, FastAPI, PyTorch, MediaPipe & OpenCV</p>
+          </footer>
         </main>
       </div>
     </div>

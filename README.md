@@ -1,136 +1,170 @@
-# SentinelX-AI — Suspect Detection System
+# 🛡️ SentinelX-AI
+> **Vigilance powered by Intelligence**
 
-> AI-powered real-time behavioral intelligence, emotion analysis, watchlist monitoring, and risk assessment platform.
-
----
-
-## Prerequisites
-
-- **Python 3.9+** (for backend)
-- **Node.js 18+** & **npm** (for frontend)
-- A working **webcam** (for live surveillance)
+SentinelX-AI is an advanced, AI-powered real-time suspect detection and behavioral intelligence platform. Built for educational and research operations, the system monitors live video feeds to analyze micro-expressions, posture, body language, and emotions. It combines this with facial recognition against a secure watchlist to generate real-time risk assessments and automated alerts, providing proactive security through state-of-the-art computer vision.
 
 ---
 
-## 🔧 Backend Setup
+## 🚀 Tech Stack
+
+**Frontend:**
+- **React 19 & Vite** - High-performance user interface
+- **TailwindCSS 4** - Utility-first styling for modern, responsive glassmorphic design
+- **Framer Motion** - Fluid micro-animations and transitions
+- **Recharts** - Data visualization for analytics
+- **Lucide React** - Clean and consistent iconography
+
+**Backend & AI:**
+- **FastAPI & Uvicorn** - Lightning-fast asynchronous API server
+- **PyTorch** - Custom Deep Learning models for emotion detection
+- **InsightFace** - State-of-the-art face recognition and embedding extraction
+- **MediaPipe** - Real-time facial and pose landmark detection for behavioral analysis
+- **OpenCV** - Image and video stream processing
+- **Scikit-Learn** - Machine learning utilities
+- **NumPy & Pillow** - Fast array and image manipulation
+
+---
+
+## ✨ Key Features
+
+1. **Real-time Live Surveillance:** Captures and processes live webcam feeds at high frame rates.
+2. **Suspicious Behavior Detection:** Analyzes head turns, blink rates, face covering, and excessive body motion.
+3. **Advanced Emotion Recognition:** Classifies 7 distinct emotions (Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise) using a custom PyTorch model.
+4. **Watchlist Monitoring:** Instantly matches faces against a pre-registered database of suspects using InsightFace embeddings.
+5. **Dynamic Risk Scoring:** Calculates an aggregated risk score (0-100) based on emotional state, behavioral anomalies, and watchlist matches.
+6. **Instant Alerts System:** Generates real-time, categorized alerts (Critical, Warning, Info) when the risk threshold is exceeded.
+7. **Comprehensive Analytics:** Dashboard with historical data, emotion distribution, and system health status.
+
+---
+
+## ⚙️ System Workflow
+
+The end-to-end processing pipeline happens in milliseconds for every frame:
+1. **Capture:** The React frontend captures a base64-encoded frame from the webcam and sends it to the backend via REST API (`/analyze-frame`).
+2. **Pre-processing:** FastAPI receives the frame, decodes it, and converts it into matrices suitable for model inference via OpenCV and Pillow.
+3. **Face Recognition (InsightFace):** The frame is scanned for faces. Detected faces are converted into embeddings and compared against `models/watchlist.npy` using cosine similarity.
+4. **Emotion Detection (PyTorch):** The primary face is analyzed by a custom CNN to determine the dominant emotion and confidence score.
+5. **Behavior Analysis (MediaPipe):** Facial and pose landmarks are extracted to calculate behavioral metrics (e.g., eye aspect ratio for blinks, shoulder motion for body movement).
+6. **Risk Assessment:** A weighted algorithm aggregates the watchlist match score, fear/anger confidence, and behavioral anomalies to output a total Risk Score.
+7. **Alert Generation:** If the risk score exceeds predefined thresholds, an alert is generated and stored in the system history.
+8. **Response:** The consolidated data (Risk, Emotion, Behavior, Alerts) is returned to the frontend and visualized instantly.
+
+---
+
+## 📋 Prerequisites
+
+- **Python 3.9 or higher**
+- **Node.js 18 or higher** (with npm)
+- A working **Webcam**
+- *Optional but recommended:* A dedicated GPU for faster PyTorch & InsightFace inference.
+
+---
+
+## 🛠️ Installation & Setup
+
+### 1. Backend Setup (AI & API Server)
 
 ```bash
-# 1. Navigate to the backend directory
+# Navigate to the backend directory
 cd backend
 
-# 2. Create a virtual environment (first time only)
+# Create a virtual environment
 python -m venv venv
 
-# 3. Activate the virtual environment
-#    On Windows (PowerShell):
+# Activate the virtual environment
+# On Windows (PowerShell):
 .\venv\Scripts\Activate.ps1
-#    On Windows (CMD):
+# On Windows (CMD):
 .\venv\Scripts\activate.bat
-#    On macOS/Linux:
+# On macOS/Linux:
 source venv/bin/activate
 
-# 4. Install dependencies (first time or after requirements change)
+# Install all Python dependencies
 pip install -r requirements.txt
 
-# 5. Start the backend server
+# Start the FastAPI server
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
+*The backend API will run at **http://localhost:8000***
 
-The backend API will be running at **http://localhost:8000**.
-
-> **Note:** If you see a PowerShell error like _"not recognized as the name of a cmdlet"_, make sure you use `.\venv\Scripts\Activate.ps1` (with `.ps1` extension) in PowerShell, or use CMD and run `.\venv\Scripts\activate.bat` instead.
-
----
-
-## 🎨 Frontend Setup
+### 2. Frontend Setup (React UI)
 
 ```bash
-# 1. Navigate to the frontend directory
+# Open a new terminal and navigate to the frontend directory
 cd frontend
 
-# 2. Install dependencies (first time only)
+# Install Node modules
 npm install
 
-# 3. Start the development server
+# Start the Vite development server
 npm run dev
 ```
-
-The frontend will be running at **http://localhost:5173** (default Vite port).
-
----
-
-## 🚀 Running the Full System
-
-1. **Start the backend first** (in one terminal):
-   ```bash
-   cd backend
-   .\venv\Scripts\Activate.ps1
-   uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-2. **Start the frontend** (in another terminal):
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. Open **http://localhost:5173** in your browser.
+*The frontend interface will run at **http://localhost:5173***
 
 ---
 
-## 📁 Project Structure
+## 💻 How to Use
 
-```
-Suspect detection/
-├── backend/
-│   ├── app.py                    # FastAPI main server
-│   ├── requirements.txt          # Python dependencies
-│   ├── models/
-│   │   ├── emotion_model.pth     # Emotion detection model
-│   │   ├── face_landmarker.task  # MediaPipe face landmarks
-│   │   ├── pose_landmarker.task  # MediaPipe pose landmarks
-│   │   └── watchlist.npy         # Saved watchlist embeddings
-│   ├── services/
-│   │   ├── behavior_service.py   # Behavioral analysis (blinks, head turns)
-│   │   ├── emotion_service.py    # Emotion detection (PyTorch)
-│   │   ├── face_service.py       # Face recognition (InsightFace)
-│   │   └── risk_service.py       # Risk scoring & alert generation
-│   └── venv/                     # Python virtual environment
-├── frontend/
-│   ├── src/
-│   │   ├── components/           # Reusable components (WebcamModule)
-│   │   ├── layouts/              # App layout with sidebar
-│   │   ├── pages/                # Dashboard, Watchlist, Analytics, etc.
-│   │   ├── App.jsx               # Router setup
-│   │   ├── main.jsx              # Entry point
-│   │   └── index.css             # Global styles & design tokens
-│   ├── package.json
-│   └── index.html
-└── README.md
-```
+1. Ensure both the Backend and Frontend servers are running.
+2. Open your browser and navigate to `http://localhost:5173`.
+3. Go to the **Add Suspect** page to enroll a new face into the system database (watchlist).
+4. Navigate to the **Suspicious Behaviour Detection** or **Dashboard** to start the live camera feed.
+5. Grant camera permissions if prompted.
+6. The system will automatically begin analyzing your face, emotions, and behavior, displaying live metrics and triggering alerts if suspicious activity is detected.
 
 ---
 
-## 🔑 Key Features
+## 🔌 API Endpoints
 
-| Feature | Description |
-|---|---|
-| **Live Surveillance** | Real-time webcam feed with AI analysis |
-| **Emotion Detection** | 7-class emotion recognition (Angry, Fear, Happy, etc.) |
-| **Face Recognition** | Watchlist matching via InsightFace embeddings |
-| **Behavioral Analysis** | Head turns, blinks, face covering, body motion |
-| **Risk Scoring** | Weighted multi-factor risk assessment (0-100) |
-| **Real-time Alerts** | Browser notifications + in-app alerts for suspect behavior |
-| **Watchlist Management** | Add/view suspects with face embeddings |
+The backend exposes the following RESTful API endpoints:
+
+| Endpoint | Method | Description | Payload / Parameters |
+|----------|--------|-------------|----------------------|
+| `/analyze-frame` | `POST` | Primary endpoint for frame analysis | `{"image": "base64...", "session_id": "string"}` |
+| `/add-criminal` | `POST` | Adds a new suspect to the watchlist | Form Data: `name` (string), `image` (file) |
+| `/detect-face` | `POST` | Single face detection test | Form Data: `image` (file) |
+| `/watchlist` | `GET` | Retrieves all users in the watchlist | None |
+| `/alerts` | `GET` | Retrieves the last 50 generated alerts | None |
+| `/analytics` | `GET` | Retrieves aggregated system analytics | None |
+| `/system-status`| `GET` | Returns the health status of models and API | None |
 
 ---
 
-## ⚠️ Troubleshooting
+## 🗄️ Database & Data Models
 
-| Issue | Solution |
-|---|---|
-| `venv activate` fails in PowerShell | Use `.\venv\Scripts\Activate.ps1` or run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |
-| Backend won't start | Make sure all pip dependencies installed correctly. Try `pip install --upgrade pip` first. |
-| Frontend can't reach backend | Ensure backend is running on port 8000. Check CORS settings. |
-| No face detected | Ensure good lighting and that your face is clearly visible to the webcam. |
-| Model loading warning | The emotion model requires the correct PyTorch model format. Check `models/emotion_model.pth`. |
+Currently, the system relies on high-speed in-memory data structures and localized `.npy` (NumPy) files for zero-latency lookups, avoiding the overhead of a traditional relational database during live video processing.
+
+### 1. Watchlist Database (`watchlist.npy`)
+A persistent NumPy array dictionary storing registered suspects.
+- **Key**: Suspect ID (String, usually a timestamp/name hash)
+- **Value**: 
+  - `name`: Full Name of the suspect
+  - `embedding`: 512-dimensional vector representation of the face (generated by InsightFace)
+
+### 2. Alerts History (In-Memory List)
+Stores active and historical alerts generated during the session.
+- `id`: Unique UUID
+- `type`: Category (`MATCH`, `BEHAVIOR`, `EMOTION`)
+- `severity`: Alert level (`CRITICAL`, `WARNING`)
+- `message`: Human-readable description
+- `timestamp`: ISO-8601 formatted time
+
+### 3. Analytics Store (In-Memory Dictionary)
+Aggregates session data for the Analytics Dashboard.
+- `emotion_distribution`: Counts of each emotion detected.
+- `risk_timeline`: Time-series data of risk scores.
+- `watchlist_matches`: Historical log of positive facial identifications.
+
+### 4. FrameData Model (Pydantic Validation)
+Incoming payload schema for the `/analyze-frame` endpoint.
+- `image`: String (Base64 encoded image frame)
+- `session_id`: String (Unique identifier for the current user's session)
+
+---
+
+<br>
+
+<div align="center">
+  <p><b>Developed by Nihari Shrivastava, in 2026</b></p>
+  <p><i>SentinelX-AI — Vigilance powered by Intelligence</i></p>
+</div>

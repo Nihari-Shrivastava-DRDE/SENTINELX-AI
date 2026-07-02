@@ -29,7 +29,7 @@ export default function Landing() {
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="mb-8"
+          className="mb-8 mt-8"
         >
           <div className="inline-flex items-center justify-center p-5 rounded-full bg-primary/10 border border-primary/30 mb-8 animate-glow">
             <Shield className="text-primary w-14 h-14" />
@@ -72,7 +72,7 @@ export default function Landing() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.8 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-15 mb-15"
         >
           {[
             { icon: <Eye className="text-primary w-7 h-7" />, title: "Real-time Vision", desc: "Advanced facial recognition & emotion tracking powered by deep learning" },
@@ -87,6 +87,14 @@ export default function Landing() {
           ))}
         </motion.div>
       </div>
+      <footer className="z-10 mt-10 pb-6 text-center text-xs text-gray-400 font-mono opacity-80">
+        <p className="mb-2 tracking-wide">
+          Developed by <span className="text-white font-bold">Nihari Shrivastava</span>, in 2026 | <span className="text-primary font-bold">SentinelX-AI</span> - Vigilance powered by Intelligence
+        </p>
+        <p className="text-[10px] text-gray-500">
+          Tech Stack: React, TailwindCSS, FastAPI, PyTorch, MediaPipe & OpenCV
+        </p>
+      </footer>
 
       {/* Smooth scanner line */}
       <div className="landing-scanner z-0 opacity-40"></div>
