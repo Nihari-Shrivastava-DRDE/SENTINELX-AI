@@ -101,6 +101,34 @@ class FaceService:
             for name in self.watchlist.keys()
         ]
 
+    def recognize_face(self, frame_bgr):
+        if self.app is None:
+            return {"error": "InsightFace is not initialized"}
+        
+        faces = self.app.get(frame_bgr)
+        if len(faces) == 0:
+            return {"error": "No face detected in the image"}
+            
+        # Get the largest face
+        faces = sorted(faces, key=lambda x: (x.bbox[2]-x.bbox[0]) * (x.bbox[3]-x.bbox[1]), reverse=True)
+        embedding = faces[0].normed_embedding
+
+        best_match = "UNKNOWN"
+        best_score = 0.0
+        for name, saved_emb in self.watchlist.items():
+            score = np.dot(embedding, saved_emb)
+            if score > best_score:
+                best_score = score
+                best_match = name
+
+        status = "MATCH" if best_score >= self.threshold else "NO_MATCH"
+        
+        return {
+            "person": best_match,
+            "match_score": round(float(best_score), 2),
+            "status": status
+        }
+
     def add_to_watchlist(self, name, frame_bgr):
         if self.app is None:
             return {"success": False, "message": "InsightFace is not initialized"}

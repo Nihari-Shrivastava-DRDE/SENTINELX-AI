@@ -21,7 +21,8 @@ export default function Analytics() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const res = await axios.get('http://localhost:8000/analytics');
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+        const res = await axios.get(`${API_BASE}/analytics`);
         if (res.data && res.data.emotion_distribution) {
           const dist = res.data.emotion_distribution;
           setEmotionData(Object.entries(dist).map(([name, val]) => ({ name, val })));

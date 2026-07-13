@@ -13,7 +13,7 @@ export default function Watchlist() {
   const [statusMessage, setStatusMessage] = useState(null);
   const fileInputRef = useRef(null);
 
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
   // Fetch watchlist from backend
   const fetchWatchlist = async () => {

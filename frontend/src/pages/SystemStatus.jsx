@@ -12,7 +12,8 @@ export default function SystemStatus() {
   const checkStatus = async () => {
     setIsRefreshing(true);
     try {
-      const res = await axios.get('http://localhost:8000/system-status', { timeout: 5000 });
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const res = await axios.get(`${API_BASE}/system-status`, { timeout: 5000 });
       setStatus(res.data);
     } catch (e) {
       setStatus({

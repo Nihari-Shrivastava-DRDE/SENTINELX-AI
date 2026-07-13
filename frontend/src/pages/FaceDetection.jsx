@@ -24,7 +24,8 @@ export default function FaceDetection() {
       const formData = new FormData();
       formData.append('image', file);
       
-      const response = await axios.post('http://127.0.0.1:8000/detect-face', formData, {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const response = await axios.post(`${API_BASE}/detect-face`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setResult(response.data);

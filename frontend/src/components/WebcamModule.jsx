@@ -130,7 +130,8 @@ export default function WebcamModule({ onDataReceived, isActive = true }) {
     isProcessingRef.current = true;
 
     try {
-      const response = await axios.post('http://localhost:8000/analyze-frame', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const response = await axios.post(`${API_BASE}/analyze-frame`, {
         image: imageSrc,
         session_id: sessionID
       });

@@ -29,7 +29,8 @@ export default function DatabaseManagement() {
       formData.append('image', file);
       formData.append('name', name.trim());
       
-      const response = await axios.post('http://127.0.0.1:8000/add-criminal', formData, {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const response = await axios.post(`${API_BASE}/add-criminal`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
