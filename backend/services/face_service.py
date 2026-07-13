@@ -12,8 +12,9 @@ class FaceService:
         self.sessions = {} # For tracking Person IDs
         
         # Initialize InsightFace with the small model (buffalo_s) to fit in 512MB RAM
+        # We explicitly limit allowed_modules to only what we need to prevent OOM crashes
         try:
-            self.app = FaceAnalysis(name='buffalo_s')
+            self.app = FaceAnalysis(name='buffalo_s', allowed_modules=['detection', 'recognition'])
             self.app.prepare(ctx_id=0, det_size=(640, 640))
         except Exception as e:
             print(f"Warning: Failed to initialize InsightFace: {e}")
