@@ -13,8 +13,9 @@ echo "Downloading required system libraries..."
 mkdir -p /opt/render/project/src/sys-libs
 cd /tmp
 
-# Download the packages without installing them (no root required)
-apt-get download libgles2 libglvnd0 || true
+# Download the packages directly using wget (bypasses apt cache issues)
+wget -q http://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglvnd0_1.4.0-1_amd64.deb || true
+wget -q http://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgles2_1.4.0-1_amd64.deb || true
 
 # Extract the shared objects (.so files)
 if ls *.deb 1> /dev/null 2>&1; then
