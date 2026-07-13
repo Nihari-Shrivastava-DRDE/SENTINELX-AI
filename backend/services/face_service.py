@@ -11,9 +11,9 @@ class FaceService:
         self.threshold = 0.45
         self.sessions = {} # For tracking Person IDs
         
-        # Initialize InsightFace
+        # Initialize InsightFace with the small model (buffalo_s) to fit in 512MB RAM
         try:
-            self.app = FaceAnalysis(name='buffalo_l')
+            self.app = FaceAnalysis(name='buffalo_s')
             self.app.prepare(ctx_id=0, det_size=(640, 640))
         except Exception as e:
             print(f"Warning: Failed to initialize InsightFace: {e}")
