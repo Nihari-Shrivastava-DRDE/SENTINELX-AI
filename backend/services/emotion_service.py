@@ -9,8 +9,10 @@ class EmotionService:
     def __init__(self, model_path="models/emotion_model.pth"):
         self.model_loaded = True
         
-        # Increase num_faces to 10
-        base_options = python.BaseOptions(model_asset_path='models/face_landmarker.task')
+        import os
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(base_dir, 'models', 'face_landmarker.task')
+        base_options = python.BaseOptions(model_asset_path=model_path)
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
             num_faces=10,

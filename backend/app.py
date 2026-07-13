@@ -36,7 +36,9 @@ app.add_middleware(
 
 # Initialize services
 supabase_service = SupabaseService()
-emotion_service = EmotionService(model_path="models/emotion_model.pth")
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+emotion_service = EmotionService(model_path=os.path.join(BASE_DIR, "models", "emotion_model.pth"))
 face_service = FaceService(supabase_service=supabase_service)
 behavior_service = BehaviorService()
 risk_service = RiskService()
