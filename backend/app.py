@@ -14,6 +14,7 @@ from services.emotion_service import EmotionService
 from services.face_service import FaceService
 from services.behavior_service import BehaviorService
 from services.risk_service import RiskService
+from services.supabase_service import SupabaseService
 
 app = FastAPI(title="SentinelX-AI Backend", version="1.0.0")
 
@@ -26,8 +27,9 @@ app.add_middleware(
 )
 
 # Initialize services
+supabase_service = SupabaseService()
 emotion_service = EmotionService(model_path="models/emotion_model.pth")
-face_service = FaceService(watchlist_path="models/watchlist.npy")
+face_service = FaceService(supabase_service=supabase_service)
 behavior_service = BehaviorService()
 risk_service = RiskService()
 
@@ -99,7 +101,13 @@ async def analyze_frame(data: FrameData):
             )
             
             for alert in person_alerts:
-                alerts_history.append(alert)
+                supabase_service.log_alert(
+                    person_id=pid,
+                    alert_type=alert.get('type', 'GENERAL'),
+                    message=alert.get('message', ''),
+                    severity=alert.get('severity', 'LOW'),
+                    details=alert
+                )
                 current_alerts.append(alert)
 
             people_data.append({
@@ -126,7 +134,11 @@ async def get_watchlist():
 
 @app.get("/alerts")
 async def get_alerts():
-    return alerts_history[-50:] # return last 50 alerts
+    try:
+        return supabase_service.get_recent_alerts(limit=50)
+    except Exception as e:
+        print(f"Error fetching alerts: {e}")
+        return []
 
 @app.get("/analytics")
 async def get_analytics():

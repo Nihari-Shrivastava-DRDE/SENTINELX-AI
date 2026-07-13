@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 torch
@@ -12,3 +13,5 @@ pydantic
 mediapipe
 python-multipart
 timm
+supabase
+python-dotenv

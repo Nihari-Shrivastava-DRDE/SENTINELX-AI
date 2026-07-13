@@ -3,11 +3,11 @@ import cv2
 import insightface
 from insightface.app import FaceAnalysis
 import time
+from services.supabase_service import SupabaseService
 
 class FaceService:
-    def __init__(self, watchlist_path="models/watchlist.npy"):
-        self.watchlist_path = watchlist_path
-        self.watchlist = {}
+    def __init__(self, supabase_service: SupabaseService):
+        self.supabase = supabase_service
         self.threshold = 0.45
         self.sessions = {} # For tracking Person IDs
         
@@ -18,20 +18,6 @@ class FaceService:
         except Exception as e:
             print(f"Warning: Failed to initialize InsightFace: {e}")
             self.app = None
-
-        self._load_watchlist()
-
-    def _load_watchlist(self):
-        try:
-            data = np.load(self.watchlist_path, allow_pickle=True)
-            if isinstance(data, np.ndarray) and data.size > 0:
-                item = data.item()
-                if isinstance(item, dict):
-                    self.watchlist = item
-                else:
-                    print("Watchlist format not recognized as dictionary. Using empty watchlist.")
-        except Exception as e:
-            print(f"Warning: Failed to load watchlist: {e}")
 
     def recognize_faces(self, frame_bgr, session_id):
         if self.app is None:
@@ -47,25 +33,31 @@ class FaceService:
         results = []
 
         for face in faces:
-            embedding = face.normed_embedding
+            embedding = face.normed_embedding.tolist()
             bbox = [int(x) for x in face.bbox]
 
-            # 1. Watchlist Match
+            # 1. Watchlist Match using Supabase pgvector
             best_match = "UNKNOWN"
             best_score = 0.0
-            for name, saved_emb in self.watchlist.items():
-                score = np.dot(embedding, saved_emb)
-                if score > best_score:
-                    best_score = score
-                    best_match = name
+            
+            try:
+                # Use Supabase RPC to do vector similarity search
+                matches = self.supabase.recognize_face(embedding, self.threshold, 1)
+                if matches and len(matches) > 0:
+                    best_match = matches[0].get('name', 'UNKNOWN')
+                    # Convert cosine distance (0 to 2) to similarity score (0 to 1) 
+                    # Wait, our SQL function returns `1 - (embedding <=> query_embedding) as similarity`
+                    best_score = matches[0].get('similarity', 0.0)
+            except Exception as e:
+                print(f"Error querying Supabase for face match: {e}")
 
             status = "MATCH" if best_score >= self.threshold else "NO_MATCH"
 
-            # 2. Tracking ID
+            # 2. Tracking ID (Local session memory is fine for frame-to-frame tracking)
             track_id = None
             best_track_score = 0.0
             for person in session["people"]:
-                score = np.dot(embedding, person["embedding"])
+                score = np.dot(face.normed_embedding, person["embedding"])
                 if score > best_track_score:
                     best_track_score = score
                     track_id = person["id"]
@@ -73,14 +65,14 @@ class FaceService:
             if best_track_score > 0.55: # match found
                 for person in session["people"]:
                     if person["id"] == track_id:
-                        person["embedding"] = 0.9 * person["embedding"] + 0.1 * embedding
+                        person["embedding"] = 0.9 * person["embedding"] + 0.1 * face.normed_embedding
                         person["embedding"] /= np.linalg.norm(person["embedding"])
                         person["last_seen"] = current_time
                         break
             else: # new person
                 track_id = f"Person {session['next_id']}"
                 session["next_id"] += 1
-                session["people"].append({"id": track_id, "embedding": embedding, "last_seen": current_time})
+                session["people"].append({"id": track_id, "embedding": face.normed_embedding, "last_seen": current_time})
 
             results.append({
                 "person_id": track_id,
@@ -96,10 +88,15 @@ class FaceService:
         return results
 
     def get_watchlist(self):
-        return [
-            {"name": name, "recognition_status": "ACTIVE"} 
-            for name in self.watchlist.keys()
-        ]
+        try:
+            records = self.supabase.get_watchlist()
+            return [
+                {"name": r["name"], "recognition_status": "ACTIVE", "created_at": r["created_at"]} 
+                for r in records
+            ]
+        except Exception as e:
+            print(f"Error fetching watchlist from Supabase: {e}")
+            return []
 
     def recognize_face(self, frame_bgr):
         if self.app is None:
@@ -111,15 +108,18 @@ class FaceService:
             
         # Get the largest face
         faces = sorted(faces, key=lambda x: (x.bbox[2]-x.bbox[0]) * (x.bbox[3]-x.bbox[1]), reverse=True)
-        embedding = faces[0].normed_embedding
+        embedding = faces[0].normed_embedding.tolist()
 
         best_match = "UNKNOWN"
         best_score = 0.0
-        for name, saved_emb in self.watchlist.items():
-            score = np.dot(embedding, saved_emb)
-            if score > best_score:
-                best_score = score
-                best_match = name
+        
+        try:
+            matches = self.supabase.recognize_face(embedding, self.threshold, 1)
+            if matches and len(matches) > 0:
+                best_match = matches[0].get('name', 'UNKNOWN')
+                best_score = matches[0].get('similarity', 0.0)
+        except Exception as e:
+            print(f"Error querying Supabase for single face match: {e}")
 
         status = "MATCH" if best_score >= self.threshold else "NO_MATCH"
         
@@ -139,14 +139,10 @@ class FaceService:
             
         # Get the largest face
         faces = sorted(faces, key=lambda x: (x.bbox[2]-x.bbox[0]) * (x.bbox[3]-x.bbox[1]), reverse=True)
-        embedding = faces[0].normed_embedding
-
-        # Save to memory
-        self.watchlist[name] = embedding
+        embedding = faces[0].normed_embedding.tolist()
         
-        # Save to file
         try:
-            np.save(self.watchlist_path, self.watchlist)
-            return {"success": True, "message": f"Successfully added {name} to watchlist"}
+            self.supabase.add_face_to_watchlist(name, embedding)
+            return {"success": True, "message": f"Successfully added {name} to Supabase watchlist"}
         except Exception as e:
-            return {"success": False, "message": f"Failed to save watchlist: {str(e)}"}
+            return {"success": False, "message": f"Failed to save to Supabase: {str(e)}"}
